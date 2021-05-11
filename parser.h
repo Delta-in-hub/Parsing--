@@ -1,7 +1,9 @@
 #ifndef PARSER__
 #define PARSER__
 #include <algorithm>
+#include <cstring>
 #include <fstream>
+#include <stack>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -13,8 +15,10 @@ namespace Parser
 {
 class LL1
 {
-    const std::string ENDCHAR{"END"};
-    const std::string NULLCHAR{"NULL"};
+  protected:
+    const std::string STARTCHAR{"__<START>__"};
+    const std::string ENDCHAR{"__<END>__"};
+    const std::string NULLCHAR{"__<NULL>__"};
     struct production
     {
         bool nullable = false;
@@ -213,7 +217,7 @@ class LL1
                             --k;
                             bool allNull = true;
                             //A->aB(c)+  first((c)+)
-                            for (next; next != end(j); ++next)
+                            for (; next != end(j); ++next)
                             {
                                 if (terminal.find(*next) != terminal.end())
                                 {
@@ -258,10 +262,117 @@ class LL1
     LL1(const std::string& filePath)
     {
         auto&& res = constructGrammar(filePath);
-        nonterminal["_START_"].symbol.push_back({move(res), ENDCHAR});
+        nonterminal[STARTCHAR].symbol.push_back({move(res), ENDCHAR});
         findAllTerminal();
         getFirst();
         getFollow();
+    }
+    bool parse(const std::string& input)
+    {
+        using namespace std;
+        char* buf = new char[input.size() + ENDCHAR.size() + 2];
+        strcpy(buf, input.data());
+        strcpy(buf + input.size(), ENDCHAR.data());
+        char* nc   = buf;
+        auto error = [&]() { string tmp("Error : " + string(nc,nc + input.size() + ENDCHAR.size()));delete[] buf;throw std::logic_error(tmp); };
+        stack<string> st;
+        // st.push(ENDCHAR);
+        st.push(STARTCHAR);
+        while (not st.empty())
+        {
+            auto top = st.top();
+            st.pop();
+            if (top == ENDCHAR)
+            {
+                if (strncmp(top.data(), nc, top.size()) == 0)
+                {
+                    return true;
+                }
+                else
+                    error();
+            }
+            else if (terminal.find(top) != terminal.end())
+            {
+                if (strncmp(top.data(), nc, top.size()) == 0)
+                {
+                    nc += top.size();
+                }
+                else
+                    error();
+            }
+            else
+            {
+                auto pos = nonterminal.find(top);
+                if (pos != nonterminal.end())
+                {
+                    bool flag = false;
+                    for (auto&& i : pos->second.symbol)
+                    {
+                        for (auto&& j : i)
+                        {
+                            if (terminal.find(j) != terminal.end())
+                            {
+                                if (strncmp(j.data(), nc, j.size()) == 0)
+                                {
+                                    for (auto k = i.rbegin(); k != i.rend(); ++k)
+                                    {
+                                        st.push(*k);
+                                    }
+                                    flag = true;
+                                    goto _next;
+                                }
+                                else
+                                    break;
+                            }
+                            else
+                            {
+                                for (auto&& m : firstSet[j])
+                                {
+                                    if (strncmp(m.data(), nc, m.size()) == 0)
+                                    {
+                                        for (auto k = i.rbegin(); k != i.rend(); ++k)
+                                        {
+                                            st.push(*k);
+                                        }
+                                        flag = true;
+                                        goto _next;
+                                    }
+                                }
+                                auto&& tmp = firstSet[j];
+                                if (tmp.find(NULLCHAR) != tmp.end())
+                                {
+                                    continue;
+                                }
+                                else
+                                    break;
+                            }
+                        }
+                    }
+                _next:
+                    if (not flag)
+                    {
+                        flag = false;
+                        if (firstSet[pos->first].find(NULLCHAR) != firstSet[pos->first].end())
+                        {
+                            for (auto&& m : followSet[pos->first])
+                            {
+                                if (strncmp(m.data(), nc, m.size()) == 0)
+                                {
+                                    flag = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (not flag)
+                            error();
+                    }
+                }
+                else
+                    error();
+            }
+        }
+        delete[] buf;
+        return false;
     }
 };
 } // namespace Parser

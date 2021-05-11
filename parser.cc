@@ -6,5 +6,6 @@ using namespace std;
 signed main(void)
 {
     Parser::LL1 parse("grammar/1.txt");
+    assert(parse.parse("i+i*i"));
     return 0;
 }
