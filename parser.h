@@ -194,7 +194,64 @@ class LL1
     }
     void getFollow()
     {
-        ;
+        using namespace std;
+
+        bool isChanged = false;
+        while (true)
+        {
+            isChanged = false;
+            for (auto&& i : nonterminal)
+            {
+                for (auto&& j : i.second.symbol)
+                {
+                    for (auto k = begin(j); k != end(j); ++k)
+                    {
+                        auto pos = nonterminal.find(*k);
+                        if (pos != end(nonterminal))
+                        {
+                            auto next = ++k;
+                            --k;
+                            bool allNull = true;
+                            //A->aB(c)+  first((c)+)
+                            for (next; next != end(j); ++next)
+                            {
+                                if (terminal.find(*next) != terminal.end())
+                                {
+                                    isChanged = followSet[*k].insert(*next).second;
+                                    allNull   = false;
+                                    break;
+                                }
+                                else
+                                {
+                                    for (auto&& m : firstSet[*next])
+                                    {
+                                        if (m != NULLCHAR)
+                                        {
+                                            isChanged = followSet[*k].insert(m).second;
+                                        }
+                                    }
+                                    if (not nonterminal[*next].nullable)
+                                    {
+                                        allNull = false;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (allNull) //A->aB
+                            {
+                                for (auto&& m : followSet[i.first])
+                                {
+                                    isChanged = followSet[*k].insert(m).second;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (not isChanged)
+                break;
+        }
     }
 
   public:
