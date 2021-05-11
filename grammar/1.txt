@@ -1,0 +1,5 @@
+E ::= T E' ;comments
+E' ::= + T E' | <null>
+T ::= F T'
+T' ::= * F T' | <null>
+F ::= ( E ) | i
