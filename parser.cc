@@ -6,6 +6,6 @@ using namespace std;
 signed main(void)
 {
     Parser::LL1 p("grammar/1.txt");
-    assert(p.parse("(i+i*i+(i*i))"));
+    assert(p.parse("((i+i*i)+i*i+i)"));
     return 0;
 }

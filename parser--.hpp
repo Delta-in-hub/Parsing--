@@ -30,7 +30,8 @@ class LL1
     std::unordered_map<std::string, std::unordered_set<std::string>> firstSet;
     std::unordered_map<std::string, std::unordered_set<std::string>> followSet;
 
-    std::map<std::pair<std::string, std::string>, size_t> table;
+    std::unordered_map<std::string, std::unordered_map<std::string, size_t>> table;
+    // std::map<std::pair<std::string, std::string>, size_t> table;
 
     //return the first nonterminal
     std::string constructGrammar(const std::string& s)
@@ -313,7 +314,7 @@ class LL1
                     {
                         if (k != NULLCHAR)
                         {
-                            auto res = table.insert({{i.first, k}, _j});
+                            auto res = table[i.first].insert({k, _j});
                             if (not res.second)
                             {
                                 error(res.first->second, _j);
@@ -330,7 +331,7 @@ class LL1
                         {
                             if (m != NULLCHAR)
                             {
-                                auto res = table.insert({{i.first, m}, _j});
+                                auto res = table[i.first].insert({m, _j});
                                 if (not res.second)
                                 {
                                     error(res.first->second, _j);
@@ -350,7 +351,7 @@ class LL1
                 {
                     for (auto&& m : followSet[i.first])
                     {
-                        auto res = table.insert({{i.first, m}, _j});
+                        auto res = table[i.first].insert({m, _j});
                         if (not res.second)
                         {
                             error(res.first->second, _j);
@@ -491,8 +492,70 @@ class LL1
 
     bool parse(const std::string& input)
     {
-        if (true)
+        if (false)
             return _parse(input);
+        using namespace std;
+        char* buf = new char[input.size() + ENDCHAR.size() + 2];
+        strcpy(buf, input.data());
+        strcpy(buf + input.size(), ENDCHAR.data());
+        char* nc   = buf;
+        auto error = [&]() {
+            cout << buf << endl;
+            char* l = buf;
+            while (++l < nc)
+                cout << ' ';
+            cout << "^^";
+            cout << endl;
+            throw std::logic_error("INPUT ERROR!");
+        };
+        stack<string> st;
+        // st.push(ENDCHAR);
+        st.push(STARTCHAR);
+        while (not st.empty())
+        {
+            auto top = st.top();
+            st.pop();
+            if (top == ENDCHAR)
+            {
+                if (strncmp(top.data(), nc, top.size()) == 0)
+                {
+                    return true;
+                }
+                else
+                    error();
+            }
+            else if (terminal.find(top) != terminal.end())
+            {
+                if (strncmp(top.data(), nc, top.size()) == 0)
+                {
+                    nc += top.size();
+                }
+                else
+                    error();
+            }
+            else
+            {
+                auto&& tmp = table[top];
+                bool flag  = false;
+                for (auto&& i : tmp)
+                {
+                    if (strncmp(i.first.data(), nc, i.first.size()) == 0)
+                    {
+                        for (auto j = production[i.second].rbegin(); j != production[i.second].rend(); ++j)
+                        {
+                            if (*j != NULLCHAR)
+                                st.push(*j);
+                        }
+                        flag = true;
+                        break;
+                    }
+                }
+                if (not flag)
+                    error();
+            }
+        }
+        delete[] buf;
+        return false;
     }
 };
 } // namespace Parser
