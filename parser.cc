@@ -5,7 +5,8 @@ using namespace std;
 
 signed main(void)
 {
-    Parser::LL1 p("grammar/1.txt");
-    assert(p.parse("((i+i*i)+i*i+i)"));
+    Parser::LL1 p("grammar/2.txt");
+    assert(p.parse("name+name*name"));
+    cout << "Successed" << endl;
     return 0;
 }

@@ -48,7 +48,7 @@ class LL1
         bool isFirst = true;
         while (getline(fs, str))
         {
-            if (str[0] == ';')
+            if (str.size() == 0 or str[0] == ';')
                 continue;
             //E ::= T E' ;comments
             string nonter;
@@ -161,7 +161,7 @@ class LL1
                     auto&& fron = j.front();
                     if (terminal.find(fron) != terminal.end())
                     {
-                        isChanged = firstSet[i.first].insert(fron).second;
+                        isChanged = (firstSet[i.first].insert(fron).second or isChanged);
                     }
                     else
                     {
@@ -176,7 +176,7 @@ class LL1
                                 {
                                     if (m != NULLCHAR)
                                     {
-                                        isChanged = firstSet[i.first].insert(m).second;
+                                        isChanged = (firstSet[i.first].insert(m).second or isChanged);
                                     }
                                     else
                                         isn = true;
@@ -190,13 +190,13 @@ class LL1
                             else
                             {
                                 allNull   = false;
-                                isChanged = firstSet[i.first].insert(k).second;
+                                isChanged = (firstSet[i.first].insert(k).second or isChanged);
                                 break;
                             }
                         }
                         if (allNull)
                         {
-                            isChanged = firstSet[i.first].insert(NULLCHAR).second;
+                            isChanged = (firstSet[i.first].insert(NULLCHAR).second or isChanged);
                         }
                     }
                 }
@@ -231,7 +231,7 @@ class LL1
                             {
                                 if (terminal.find(*next) != terminal.end())
                                 {
-                                    isChanged = followSet[*k].insert(*next).second;
+                                    isChanged = followSet[*k].insert(*next).second or isChanged;
                                     allNull   = false;
                                     break;
                                 }
@@ -242,7 +242,7 @@ class LL1
                                     {
                                         if (m != NULLCHAR)
                                         {
-                                            isChanged = followSet[*k].insert(m).second;
+                                            isChanged = followSet[*k].insert(m).second or isChanged;
                                         }
                                         else
                                             isn = true;
@@ -259,7 +259,7 @@ class LL1
                             {
                                 for (auto&& m : followSet[i.first])
                                 {
-                                    isChanged = followSet[*k].insert(m).second;
+                                    isChanged = followSet[*k].insert(m).second or isChanged;
                                 }
                             }
                         }
@@ -277,7 +277,7 @@ class LL1
             {
                 if (find(begin(i.second), end(i.second), a) != end(i.second))
                 {
-                    std::cout << i.first << "::= ";
+                    std::cout << i.first << " ::= ";
                 }
             }
 
@@ -291,7 +291,7 @@ class LL1
             {
                 if (find(begin(i.second), end(i.second), b) != end(i.second))
                 {
-                    std::cout << i.first << "::= ";
+                    std::cout << i.first << " ::= ";
                 }
             }
             for (auto&& i : production[b])
@@ -361,6 +361,107 @@ class LL1
             }
         }
     }
+    void removeLeftRecursion()
+    {
+        using namespace std;
+        vector<string> allNonterminal;
+        allNonterminal.reserve(nonterminal.size());
+        for (auto&& i : nonterminal)
+        {
+            allNonterminal.push_back(i.first);
+        }
+
+        for (auto i_ = allNonterminal.begin(); i_ != allNonterminal.end(); ++i_)
+        {
+            //Ai
+            auto i = nonterminal.find(*i_);
+            cout << i->first << endl;
+            vector<size_t> removeIndex, toInsert;
+            for (auto j_ = allNonterminal.begin(); j_ != i_; ++j_)
+            {
+                //Aj
+                auto j = nonterminal.find(*j_);
+
+                //Ai -> ...
+                for (size_t _i = 0; _i != i->second.size(); ++_i)
+                {
+                    // auto&& np = production[i->second[_i]];
+                    // cout << production[i->second[_i]].front() << endl;
+
+                    //Ai -> Aj ...
+                    if (production[i->second[_i]].front() == *j_)
+                    {
+
+                        removeIndex.push_back(_i);
+
+                        for (auto&& _j : j->second)
+                        {
+                            toInsert.push_back(production.size());
+                            production.push_back(production[_j]);
+
+                            for (auto k = production[i->second[_i]].begin() + 1; k < production[i->second[_i]].end(); ++k)
+                            {
+                                production.back().push_back(*k);
+                            }
+                        }
+                    }
+                }
+            }
+            size_t l2 = 0;
+            for (auto&& j : removeIndex)
+            {
+                i->second[j] = toInsert[l2++];
+            }
+            while (l2 < toInsert.size())
+            {
+                i->second.push_back(toInsert[l2++]);
+            }
+
+            vector<size_t> reindex, nonindex;
+            for (size_t _i = 0; _i != i->second.size(); ++_i)
+            {
+                auto&& np = production[i->second[_i]];
+                if (np.front() == i->first)
+                    reindex.push_back(_i);
+                else
+                    nonindex.push_back(_i);
+            }
+
+            if (not reindex.empty())
+            {
+                string newname = i->first + "_NEW_";
+
+                nonterminal[newname].push_back(production.size());
+
+                production.push_back({NULLCHAR});
+                terminal.insert(NULLCHAR);
+
+                for (auto&& j : reindex)
+                {
+
+                    auto&& np = production[i->second[j]];
+                    //
+                    vector<string> tmp;
+                    copy(np.begin() + 1, np.end(), back_inserter(tmp));
+                    tmp.push_back(newname);
+                    //aA'
+
+                    nonterminal[newname].push_back(production.size());
+                    production.push_back(move(tmp));
+                }
+                vector<size_t> res;
+                res.reserve(nonindex.size());
+                for (auto&& j : nonindex)
+                {
+                    res.push_back(i->second[j]);
+                    auto&& np = production[i->second[j]];
+                    np.push_back(newname);
+                }
+                // i->second = move(nonindex);  bug !
+                i->second = move(res);
+            }
+        }
+    }
 
   public:
     LL1(const std::string& filePath)
@@ -369,131 +470,14 @@ class LL1
         nonterminal[STARTCHAR].push_back(production.size());
         production.push_back({move(res), ENDCHAR});
         findAllTerminal();
+        removeLeftRecursion();
         getFirst();
         getFollow();
         constructTable();
     }
-    bool _parse(const std::string& input)
-    {
-        using namespace std;
-        char* buf = new char[input.size() + ENDCHAR.size() + 2];
-        strcpy(buf, input.data());
-        strcpy(buf + input.size(), ENDCHAR.data());
-        char* nc   = buf;
-        auto error = [&]() {
-            cout << buf << endl;
-            char* l = buf;
-            while (++l < nc)
-                cout << ' ';
-            cout << "^^";
-            cout << endl;
-            throw std::logic_error("INPUT ERROR!");
-        };
-        stack<string> st;
-        // st.push(ENDCHAR);
-        st.push(STARTCHAR);
-        while (not st.empty())
-        {
-            auto top = st.top();
-            st.pop();
-            if (top == ENDCHAR)
-            {
-                if (strncmp(top.data(), nc, top.size()) == 0)
-                {
-                    return true;
-                }
-                else
-                    error();
-            }
-            else if (terminal.find(top) != terminal.end())
-            {
-                if (strncmp(top.data(), nc, top.size()) == 0)
-                {
-                    nc += top.size();
-                }
-                else
-                    error();
-            }
-            else
-            {
-                auto pos = nonterminal.find(top);
-                if (pos != nonterminal.end())
-                {
-                    bool flag = false;
-                    for (auto&& _i : pos->second)
-                    {
-                        auto&& i = production[_i];
-                        for (auto&& j : i)
-                        {
-                            if (terminal.find(j) != terminal.end())
-                            {
-                                if (strncmp(j.data(), nc, j.size()) == 0)
-                                {
-                                    for (auto k = i.rbegin(); k != i.rend(); ++k)
-                                    {
-                                        st.push(*k);
-                                    }
-                                    flag = true;
-                                    goto _next;
-                                }
-                                else
-                                    break;
-                            }
-                            else
-                            {
-                                for (auto&& m : firstSet[j])
-                                {
-                                    if (strncmp(m.data(), nc, m.size()) == 0)
-                                    {
-                                        for (auto k = i.rbegin(); k != i.rend(); ++k)
-                                        {
-                                            st.push(*k);
-                                        }
-                                        flag = true;
-                                        goto _next;
-                                    }
-                                }
-                                auto&& tmp = firstSet[j];
-                                if (tmp.find(NULLCHAR) != tmp.end())
-                                {
-                                    continue;
-                                }
-                                else
-                                    break;
-                            }
-                        }
-                    }
-                _next:
-                    if (not flag)
-                    {
-                        flag = false;
-                        if (firstSet[pos->first].find(NULLCHAR) != firstSet[pos->first].end())
-                        {
-                            for (auto&& m : followSet[pos->first])
-                            {
-                                if (strncmp(m.data(), nc, m.size()) == 0)
-                                {
-                                    flag = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (not flag)
-                            error();
-                    }
-                }
-                else
-                    error();
-            }
-        }
-        delete[] buf;
-        return false;
-    }
 
     bool parse(const std::string& input)
     {
-        if (false)
-            return _parse(input);
         using namespace std;
         char* buf = new char[input.size() + ENDCHAR.size() + 2];
         strcpy(buf, input.data());
@@ -506,6 +490,7 @@ class LL1
                 cout << ' ';
             cout << "^^";
             cout << endl;
+            delete[] buf;
             throw std::logic_error("INPUT ERROR!");
         };
         stack<string> st;
@@ -541,10 +526,12 @@ class LL1
                 {
                     if (strncmp(i.first.data(), nc, i.first.size()) == 0)
                     {
-                        for (auto j = production[i.second].rbegin(); j != production[i.second].rend(); ++j)
+                        if (not(production[i.second].size() == 1 and production[i.second].front() == NULLCHAR))
                         {
-                            if (*j != NULLCHAR)
+                            for (auto j = production[i.second].rbegin(); j != production[i.second].rend(); ++j)
+                            {
                                 st.push(*j);
+                            }
                         }
                         flag = true;
                         break;

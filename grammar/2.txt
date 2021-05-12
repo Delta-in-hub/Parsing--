@@ -1,0 +1,5 @@
+;left recursion
+Expr ::= Expr + Term | Expr - Term | Term
+Term ::= Term * Factor | Term / Factor | Factor
+Factor ::= ( Expr ) | num | name
+;E ::= E b | a
