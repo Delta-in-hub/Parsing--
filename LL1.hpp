@@ -1,5 +1,5 @@
-#ifndef PARSER__
-#define PARSER__
+#ifndef PARSERLL1__
+#define PARSERLL1__
 #include <algorithm>
 #include <cstring>
 #include <fstream>
@@ -375,7 +375,7 @@ class LL1
         {
             //Ai
             auto i = nonterminal.find(*i_);
-            cout << i->first << endl;
+            // cout << i->first << endl;
             vector<size_t> removeIndex, toInsert;
             for (auto j_ = allNonterminal.begin(); j_ != i_; ++j_)
             {
