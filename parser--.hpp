@@ -271,6 +271,36 @@ class LL1
     }
     void constructTable()
     {
+        auto error = [&](size_t a, size_t b) {
+            for (auto&& i : nonterminal)
+            {
+                if (find(begin(i.second), end(i.second), a) != end(i.second))
+                {
+                    std::cout << i.first << "::= ";
+                }
+            }
+
+            for (auto&& i : production[a])
+            {
+                std::cout << i << ' ';
+            }
+            std::cout << std::endl;
+
+            for (auto&& i : nonterminal)
+            {
+                if (find(begin(i.second), end(i.second), b) != end(i.second))
+                {
+                    std::cout << i.first << "::= ";
+                }
+            }
+            for (auto&& i : production[b])
+            {
+                std::cout << i << ' ';
+            }
+            std::cout << std::endl;
+
+            throw std::logic_error("NOT LL1 GRAMMAR!\n");
+        };
         for (auto&& i : nonterminal)
         {
             for (auto&& _j : i.second)
@@ -282,8 +312,14 @@ class LL1
                     if (terminal.find(k) != terminal.end())
                     {
                         if (k != NULLCHAR)
-                            table.insert({{i.first, k}, _j});
-                        allNull = false;
+                        {
+                            auto res = table.insert({{i.first, k}, _j});
+                            if (not res.second)
+                            {
+                                error(res.first->second, _j);
+                            }
+                            allNull = false;
+                        }
                         break;
                     }
                     else
@@ -293,7 +329,13 @@ class LL1
                         for (auto&& m : fir)
                         {
                             if (m != NULLCHAR)
-                                table.insert({{i.first, m}, _j});
+                            {
+                                auto res = table.insert({{i.first, m}, _j});
+                                if (not res.second)
+                                {
+                                    error(res.first->second, _j);
+                                }
+                            }
                             else
                                 flag = true;
                         }
@@ -306,7 +348,14 @@ class LL1
                 }
                 if (allNull)
                 {
-                    ;
+                    for (auto&& m : followSet[i.first])
+                    {
+                        auto res = table.insert({{i.first, m}, _j});
+                        if (not res.second)
+                        {
+                            error(res.first->second, _j);
+                        }
+                    }
                 }
             }
         }
