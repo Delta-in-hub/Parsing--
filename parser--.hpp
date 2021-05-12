@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -20,21 +21,24 @@ class LL1
     const std::string STARTCHAR{"__<START>__"};
     const std::string ENDCHAR{"__<END>__"};
     const std::string NULLCHAR{"__<NULL>__"};
-    struct production
-    {
-        bool nullable = false;
-        std::vector<std::vector<std::string>> symbol;
-    };
+
+    std::vector<std::vector<std::string>> production;
 
     std::unordered_set<std::string> terminal;
-    std::unordered_map<std::string, production> nonterminal;
+    std::unordered_map<std::string, std::vector<size_t>> nonterminal;
 
     std::unordered_map<std::string, std::unordered_set<std::string>> firstSet;
     std::unordered_map<std::string, std::unordered_set<std::string>> followSet;
+
+    std::map<std::pair<std::string, std::string>, size_t> table;
+
     //return the first nonterminal
     std::string constructGrammar(const std::string& s)
     {
         using namespace std;
+
+        static const string NullStr("<null>");
+
         fstream fs(s);
         if (not fs.is_open())
             throw invalid_argument("File don't exist.");
@@ -76,11 +80,9 @@ class LL1
                 {
                     if (not ter.empty())
                     {
-                        if (ter == "<null>")
+                        if (ter == NullStr)
                         {
-                            nonterminal[nonter].nullable = true;
-                            arr.pop_back();
-                            --cnt;
+                            arr[cnt].push_back(NULLCHAR);
                         }
                         else
                         {
@@ -105,11 +107,9 @@ class LL1
                 }
                 else if (not ter.empty())
                 {
-                    if (ter == "<null>")
+                    if (ter == NullStr)
                     {
-                        nonterminal[nonter].nullable = true;
-                        arr.pop_back();
-                        --cnt;
+                        arr[cnt].push_back(NULLCHAR);
                     }
                     else
                     {
@@ -119,21 +119,24 @@ class LL1
                 }
                 ++pos;
             }
-            nonterminal[nonter].symbol = move(arr);
+            auto&& tmp = nonterminal[nonter];
+            for (auto&& i : arr)
+            {
+                tmp.push_back(production.size());
+                production.push_back(move(i));
+                // nonterminal[nonter].symbol = move(arr);
+            }
         }
         return firstTerminal;
     }
     void findAllTerminal()
     {
-        for (auto&& i : nonterminal)
+        for (auto&& i : production)
         {
-            for (auto&& j : i.second.symbol)
+            for (auto&& j : i)
             {
-                for (auto&& k : j)
-                {
-                    if (nonterminal.find(k) == nonterminal.end())
-                        terminal.emplace(k);
-                }
+                if (nonterminal.find(j) == nonterminal.end())
+                    terminal.emplace(j);
             }
         }
     }
@@ -147,12 +150,13 @@ class LL1
             isChanged = false;
             for (auto&& i : nonterminal)
             {
-                if (i.second.nullable)
+                // if (i.second.nullable)
+                // {
+                //     isChanged = firstSet[i.first].insert(NULLCHAR).second;
+                // }
+                for (auto&& _j : i.second)
                 {
-                    isChanged = firstSet[i.first].insert(NULLCHAR).second;
-                }
-                for (auto&& j : i.second.symbol)
-                {
+                    auto&& j    = production[_j];
                     auto&& fron = j.front();
                     if (terminal.find(fron) != terminal.end())
                     {
@@ -166,14 +170,17 @@ class LL1
                             auto pos = nonterminal.find(k);
                             if (pos != nonterminal.end())
                             {
+                                bool isn = false;
                                 for (auto&& m : firstSet[pos->first])
                                 {
-                                    if (m != ENDCHAR)
+                                    if (m != NULLCHAR)
                                     {
                                         isChanged = firstSet[i.first].insert(m).second;
                                     }
+                                    else
+                                        isn = true;
                                 }
-                                if (not pos->second.nullable)
+                                if (not isn)
                                 {
                                     allNull = false;
                                     break;
@@ -207,8 +214,9 @@ class LL1
             isChanged = false;
             for (auto&& i : nonterminal)
             {
-                for (auto&& j : i.second.symbol)
+                for (auto&& _j : i.second)
                 {
+                    auto&& j = production[_j];
                     for (auto k = begin(j); k != end(j); ++k)
                     {
                         auto pos = nonterminal.find(*k);
@@ -228,14 +236,17 @@ class LL1
                                 }
                                 else
                                 {
+                                    bool isn = false;
                                     for (auto&& m : firstSet[*next])
                                     {
                                         if (m != NULLCHAR)
                                         {
                                             isChanged = followSet[*k].insert(m).second;
                                         }
+                                        else
+                                            isn = true;
                                     }
-                                    if (not nonterminal[*next].nullable)
+                                    if (not isn)
                                     {
                                         allNull = false;
                                         break;
@@ -258,17 +269,61 @@ class LL1
                 break;
         }
     }
+    void constructTable()
+    {
+        for (auto&& i : nonterminal)
+        {
+            for (auto&& _j : i.second)
+            {
+                auto&& j     = production[_j];
+                bool allNull = true;
+                for (auto&& k : j)
+                {
+                    if (terminal.find(k) != terminal.end())
+                    {
+                        if (k != NULLCHAR)
+                            table.insert({{i.first, k}, _j});
+                        allNull = false;
+                        break;
+                    }
+                    else
+                    {
+                        auto&& fir = firstSet[k];
+                        bool flag  = false;
+                        for (auto&& m : fir)
+                        {
+                            if (m != NULLCHAR)
+                                table.insert({{i.first, m}, _j});
+                            else
+                                flag = true;
+                        }
+                        if (not flag)
+                        {
+                            allNull = false;
+                            break;
+                        }
+                    }
+                }
+                if (allNull)
+                {
+                    ;
+                }
+            }
+        }
+    }
 
   public:
     LL1(const std::string& filePath)
     {
         auto&& res = constructGrammar(filePath);
-        nonterminal[STARTCHAR].symbol.push_back({move(res), ENDCHAR});
+        nonterminal[STARTCHAR].push_back(production.size());
+        production.push_back({move(res), ENDCHAR});
         findAllTerminal();
         getFirst();
         getFollow();
+        constructTable();
     }
-    bool parse(const std::string& input)
+    bool _parse(const std::string& input)
     {
         using namespace std;
         char* buf = new char[input.size() + ENDCHAR.size() + 2];
@@ -315,8 +370,9 @@ class LL1
                 if (pos != nonterminal.end())
                 {
                     bool flag = false;
-                    for (auto&& i : pos->second.symbol)
+                    for (auto&& _i : pos->second)
                     {
+                        auto&& i = production[_i];
                         for (auto&& j : i)
                         {
                             if (terminal.find(j) != terminal.end())
@@ -382,6 +438,12 @@ class LL1
         }
         delete[] buf;
         return false;
+    }
+
+    bool parse(const std::string& input)
+    {
+        if (true)
+            return _parse(input);
     }
 };
 } // namespace Parser
