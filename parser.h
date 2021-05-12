@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <stack>
 #include <stdexcept>
 #include <string>
@@ -274,7 +275,15 @@ class LL1
         strcpy(buf, input.data());
         strcpy(buf + input.size(), ENDCHAR.data());
         char* nc   = buf;
-        auto error = [&]() { string tmp("Error : " + string(nc,nc + input.size() + ENDCHAR.size()));delete[] buf;throw std::logic_error(tmp); };
+        auto error = [&]() {
+            cout << buf << endl;
+            char* l = buf;
+            while (++l < nc)
+                cout << ' ';
+            cout << "^^";
+            cout << endl;
+            throw std::logic_error("INPUT ERROR!");
+        };
         stack<string> st;
         // st.push(ENDCHAR);
         st.push(STARTCHAR);
