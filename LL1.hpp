@@ -480,8 +480,19 @@ class LL1
     {
         using namespace std;
         char* buf = new char[input.size() + ENDCHAR.size() + 2];
-        strcpy(buf, input.data());
-        strcpy(buf + input.size(), ENDCHAR.data());
+        if (true)
+        {
+            //remove space
+            char* l = buf;
+            for_each(begin(input), end(input), [&l](char c) { if(not isspace(c)) *l++ = c; });
+            strcpy(l, ENDCHAR.data());
+        }
+        else
+        {
+            strcpy(buf, input.data());
+            strcpy(buf + input.size(), ENDCHAR.data());
+        }
+
         char* nc   = buf;
         auto error = [&]() {
             cout << buf << endl;
