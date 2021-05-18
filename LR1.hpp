@@ -46,9 +46,13 @@ class LR1
     struct ItemSet
     {
         std::set<Item> item;
+        bool operator<(const ItemSet& t) const
+        {
+            return item < t.item;
+        }
     };
 
-    std::vector<ItemSet> CC;
+    std::set<ItemSet> CC;
 
     //return the first nonterminal
     std::string constructGrammar(const std::string& s)
@@ -330,21 +334,24 @@ class LR1
         while (not q.empty())
         {
             auto&& now = q.front();
-            auto pos   = nonterminal.find(production[now.productionPosi][now.dotPosi]);
-            if (pos != nonterminal.end())
+            if (now.dotPosi < production[now.productionPosi].size())
             {
-                if (first(production[now.productionPosi], now.dotPosi + 1))
+                auto pos = nonterminal.find(production[now.productionPosi][now.dotPosi]);
+                if (pos != nonterminal.end())
                 {
-                    tmpFirst.push_back(now.next);
-                }
-                for (auto&& j : pos->second)
-                {
-                    for (auto&& i : tmpFirst)
+                    if (first(production[now.productionPosi], now.dotPosi + 1))
                     {
-                        auto flag = a.item.insert({j, 0, move(i)});
-                        if (flag.second)
+                        tmpFirst.push_back(now.next);
+                    }
+                    for (auto&& j : pos->second)
+                    {
+                        for (auto&& i : tmpFirst)
                         {
-                            q.push(*(flag.first));
+                            auto flag = a.item.insert({j, 0, i});
+                            if (flag.second)
+                            {
+                                q.push(*(flag.first));
+                            }
                         }
                     }
                 }
@@ -358,7 +365,7 @@ class LR1
         ItemSet n;
         for (auto&& i : s.item)
         {
-            if (production[i.productionPosi][i.dotPosi] == x)
+            if (i.dotPosi < production[i.productionPosi].size() and production[i.productionPosi][i.dotPosi] == x)
             {
                 n.item.insert({i.productionPosi, i.dotPosi + 1, i.next});
             }
@@ -367,14 +374,98 @@ class LR1
         return n;
     }
 
+    struct hashpair
+    {
+        size_t operator()(const std::pair<const ItemSet*, std::string>& t) const
+        {
+            return std::hash<const ItemSet*>()(t.first) xor std::hash<std::string>()(t.second);
+        }
+    };
+    std::unordered_map<std::pair<const ItemSet*, std::string>, std::tuple<char, std::string, const ItemSet*>, hashpair> Action;
+    std::unordered_map<std::pair<const ItemSet*, std::string>, const ItemSet*, hashpair> Goto;
+
+    std::unordered_map<const ItemSet*, std::vector<std::pair<const ItemSet*, std::string>>> path;
     void constructCC()
     {
+        using namespace std;
+        auto error = []() {
+            throw std::logic_error("NOT LR1 GRAMMAR!\n");
+        };
         ItemSet tmp;
         tmp.item.insert({0, 0, ENDCHAR});
-        CC.emplace_back(move(tmp));
-        closure(CC.front());
-        
+        closure(tmp);
+        CC.emplace(move(tmp));
+        queue<decltype(CC.begin())> q;
+        q.push(CC.begin());
+        while (not q.empty())
+        {
+            auto&& now = q.front();
+            unordered_set<string> behinddot;
+            for (auto&& i : now->item)
+            {
+                if (i.dotPosi == production[i.productionPosi].size())
+                {
+                    if (not Action.insert({{&(*now), i.next}, {'r', prodToNonter[i.productionPosi], nullptr}}).second)
+                        error();
+                }
+                else
+                {
+                    behinddot.insert(production[i.productionPosi][i.dotPosi]);
+                }
+            }
+            for (auto&& x : behinddot)
+            {
+                auto tmp = goto_(*now, x);
+                if (tmp.item.empty())
+                    continue;
+                auto pos = CC.emplace(move(tmp));
+                if (pos.second)
+                {
+                    q.push(pos.first);
+                }
+                auto ntpos = nonterminal.find(x);
+                if (ntpos != nonterminal.end())
+                {
+                    if (not Goto.insert({{&(*now), x}, &(*pos.first)}).second)
+                        error();
+                }
+                else
+                {
+                    if (not Action.insert({{&(*now), x}, {'s', "", &(*pos.first)}}).second)
+                    {
+                        error();
+                    }
+                }
+            }
+            q.pop();
+        }
     }
+
+    // void constructTable()
+    // {
+    //     for (auto&& i : CC)
+    //     {
+    //         for (auto&& j : i.item)
+    //         {
+    //             if (j.dotPosi == production[j.productionPosi].size())
+    //             {
+    //                 if (j.next == ENDCHAR)
+    //                     // Action[{&i, j.next}] = {'a', "ACCEPT"};
+    //                 else
+    //                     // Action[{&i, j.next}] = {'r', prodToNonter[j.productionPosi]};
+    //             }
+    //             else
+    //             {
+    //                 auto&& now = production[j.productionPosi][j.dotPosi];
+    //                 if(terminal.find(now) != terminal.end())
+    //                 {
+    //                     auto cj = goto_(i, now);
+    //                     // Action[{&i, now}] = {'s',};
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
   public:
     LR1(const std::string& filePath)
@@ -384,12 +475,27 @@ class LR1
         // nonterminal[STARTCHAR].push_back(production.size());
         // prodToNonter[production.size()] = STARTCHAR;
         // production.push_back({move(res), ENDCHAR});
+        terminal.insert(ENDCHAR);
+        terminal.insert(NULLCHAR);
         findAllTerminal();
         getFirst();
         getFollow();
         // production.back().pop_back();
         constructCC();
+        cout << "Action\t" << Action.size() << endl;
+        for (auto&& i : Action)
+        {
+            cout << i.first.first->item.size() << ' '
+                 << i.first.second << ' ' << get<0>(i.second) << ' ' << get<1>(i.second)
+                 << endl;
         }
+        cout << "GOTO\t" << Goto.size() << endl;
+        for (auto&& i : Goto)
+        {
+            cout << i.first.first->item.size() << ' '
+                 << i.first.second << ' ' << i.second->item.size() << endl;
+        }
+    }
 
     bool parse(const std::string& input)
     {
