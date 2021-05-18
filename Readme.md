@@ -1,5 +1,5 @@
 # Parser--
-Simple Header Only Parser of LL1 /
+Simple Header Only Parser of LL1 / LR1
 ## Grammar form
 ```
 ;left recursion     Any character behind ; will be ignored.
@@ -27,7 +27,7 @@ Factor ::= ( Expr ) | num | name | <null>  ; <null> for epsilon
 
 ```
 输入的TOKEN用空格分隔
-## 如何处理空产生式(epsilon)
+###  如何处理空产生式(epsilon)
 正常生成Action表和Goto表
 
 在判断时,若Action[state,word]不存在,则去找Action[state,epsilon]
