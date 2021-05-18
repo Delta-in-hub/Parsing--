@@ -9,7 +9,7 @@ signed main(void)
     clock_t s = clock();
     Parser::LR1 p("grammar/3.txt");
     cout << clock() - s << endl;
-    assert(p.parse("(a)-(b)"));
+    assert(p.parse("( ( ) ) ( ) ( )"));
     cout << clock() - s << endl;
     cout << "Successed" << endl;
     return 0;

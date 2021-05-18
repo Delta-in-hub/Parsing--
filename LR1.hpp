@@ -381,10 +381,13 @@ class LR1
             return std::hash<const ItemSet*>()(t.first) xor std::hash<std::string>()(t.second);
         }
     };
-    std::unordered_map<std::pair<const ItemSet*, std::string>, std::tuple<char, std::string, const ItemSet*>, hashpair> Action;
+    std::unordered_map<std::pair<const ItemSet*, std::string>, std::tuple<char, std::string, const ItemSet*, size_t>, hashpair> Action;
+
     std::unordered_map<std::pair<const ItemSet*, std::string>, const ItemSet*, hashpair> Goto;
 
     std::unordered_map<const ItemSet*, std::vector<std::pair<const ItemSet*, std::string>>> path;
+
+    const ItemSet* StartState;
     void constructCC()
     {
         using namespace std;
@@ -397,6 +400,7 @@ class LR1
         CC.emplace(move(tmp));
         queue<decltype(CC.begin())> q;
         q.push(CC.begin());
+        StartState = &(*(CC.begin()));
         while (not q.empty())
         {
             auto&& now = q.front();
@@ -405,7 +409,7 @@ class LR1
             {
                 if (i.dotPosi == production[i.productionPosi].size())
                 {
-                    if (not Action.insert({{&(*now), i.next}, {'r', prodToNonter[i.productionPosi], nullptr}}).second)
+                    if (not Action.insert({{&(*now), i.next}, {'r', prodToNonter[i.productionPosi], nullptr, production[i.productionPosi].size()}}).second)
                         error();
                 }
                 else
@@ -431,7 +435,7 @@ class LR1
                 }
                 else
                 {
-                    if (not Action.insert({{&(*now), x}, {'s', "", &(*pos.first)}}).second)
+                    if (not Action.insert({{&(*now), x}, {'s', "", &(*pos.first), 0}}).second)
                     {
                         error();
                     }
@@ -482,24 +486,91 @@ class LR1
         getFollow();
         // production.back().pop_back();
         constructCC();
-        cout << "Action\t" << Action.size() << endl;
-        for (auto&& i : Action)
-        {
-            cout << i.first.first->item.size() << ' '
-                 << i.first.second << ' ' << get<0>(i.second) << ' ' << get<1>(i.second)
-                 << endl;
-        }
-        cout << "GOTO\t" << Goto.size() << endl;
-        for (auto&& i : Goto)
-        {
-            cout << i.first.first->item.size() << ' '
-                 << i.first.second << ' ' << i.second->item.size() << endl;
-        }
+        // cout << "Action\t" << Action.size() << endl;
+        // for (auto&& i : Action)
+        // {
+        //     cout << i.first.first->item.size() << ' '
+        //          << i.first.second << ' ' << get<0>(i.second) << ' ' << get<1>(i.second)
+        //          << endl;
+        // }
+        // cout << "GOTO\t" << Goto.size() << endl;
+        // for (auto&& i : Goto)
+        // {
+        //     cout << i.first.first->item.size() << ' '
+        //          << i.first.second << ' ' << i.second->item.size() << endl;
+        // }
     }
 
     bool parse(const std::string& input)
     {
         using namespace std;
+        char* buf = new char[input.size() + ENDCHAR.size() + 2];
+        strcpy(buf, input.data());
+        buf[input.size()] = ' ';
+        strcpy(buf + input.size() + 1, ENDCHAR.data());
+
+        char* nc      = buf;
+        auto nextWord = [&]() -> string {
+            string res;
+            if (*nc == 0)
+                throw std::range_error("");
+            while (isspace(*nc))
+                nc++;
+            while (not isspace(*nc) and *nc != 0)
+                res.push_back(*nc++);
+            return res;
+        };
+        auto error = [&]() {
+            cout << buf << endl;
+            char* l = buf;
+            while (++l < nc)
+                cout << ' ';
+            cout << "^^";
+            cout << endl;
+            delete[] buf;
+            throw std::logic_error("INPUT ERROR!");
+        };
+        stack<const ItemSet*> state;
+        state.push(StartState);
+        stack<string> symbol;
+        symbol.push(ENDCHAR);
+        auto word = nextWord();
+        while (true)
+        {
+            auto ns = state.top();
+            // state.pop();
+            auto pos = Action.find({ns, word});
+            if (pos == Action.end())
+            {
+                error();
+                return false;
+            }
+            auto&& tmp = pos->second;
+            if (get<0>(tmp) == 's')
+            {
+                symbol.push(get<1>(tmp));
+                state.push(get<2>(tmp));
+                word = nextWord();
+            }
+            else
+            {
+                if (get<1>(tmp) == "Goal" and *nc == 0)
+                {
+                    break;
+                }
+                else
+                {
+                    auto n = get<3>(tmp);
+                    while (n--)
+                    {
+                        state.pop();
+                        symbol.pop();
+                    }
+                    symbol.push(get<1>(tmp));
+                    state.push(Goto[{state.top(), get<1>(tmp)}]);
+                }
+            }
+        }
         return true;
     }
 };
