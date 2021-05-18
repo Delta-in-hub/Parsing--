@@ -480,19 +480,10 @@ class LL1
     {
         using namespace std;
         char* buf = new char[input.size() + ENDCHAR.size() + 2];
-        if (true)
-        {
-            //remove space
-            char* l = buf;
-            for_each(begin(input), end(input), [&l](char c) { if(not isspace(c)) *l++ = c; });
-            strcpy(l, ENDCHAR.data());
-        }
-        else
-        {
-            strcpy(buf, input.data());
-            strcpy(buf + input.size(), ENDCHAR.data());
-        }
-
+        //remove space
+        char* l = buf;
+        for_each(begin(input), end(input), [&l](char c) { if(not isspace(c)) *l++ = c; });
+        strcpy(l, ENDCHAR.data());
         char* nc   = buf;
         auto error = [&]() {
             cout << buf << endl;
@@ -505,7 +496,6 @@ class LL1
             throw std::logic_error("INPUT ERROR!");
         };
         stack<string> st;
-        // st.push(ENDCHAR);
         st.push(STARTCHAR);
         while (not st.empty())
         {

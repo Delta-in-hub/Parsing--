@@ -31,7 +31,6 @@ class LR1
     std::unordered_map<size_t, std::string> prodToNonter;
 
     std::unordered_map<std::string, std::unordered_set<std::string>> firstSet;
-    std::unordered_map<std::string, std::unordered_set<std::string>> followSet;
 
     struct Item
     {
@@ -173,10 +172,6 @@ class LR1
             isChanged = false;
             for (auto&& i : nonterminal)
             {
-                // if (i.second.nullable)
-                // {
-                //     isChanged = firstSet[i.first].insert(NULLCHAR).second;
-                // }
                 for (auto&& _j : i.second)
                 {
                     auto&& j    = production[_j];
@@ -219,71 +214,6 @@ class LR1
                         if (allNull)
                         {
                             isChanged = (firstSet[i.first].insert(NULLCHAR).second or isChanged);
-                        }
-                    }
-                }
-            }
-            if (not isChanged)
-                break;
-        }
-    }
-    void getFollow()
-    {
-        using namespace std;
-
-        bool isChanged = false;
-        while (true)
-        {
-            isChanged = false;
-            for (auto&& i : nonterminal)
-            {
-                for (auto&& _j : i.second)
-                {
-                    auto&& j = production[_j];
-                    for (auto k = begin(j); k != end(j); ++k)
-                    {
-                        auto pos = nonterminal.find(*k);
-                        if (pos != end(nonterminal))
-                        {
-                            auto next = ++k;
-                            --k;
-                            bool allNull = true;
-                            //A->aB(c)+  first((c)+)
-                            for (; next != end(j); ++next)
-                            {
-                                if (terminal.find(*next) != terminal.end())
-                                {
-                                    isChanged = followSet[*k].insert(*next).second or isChanged;
-                                    allNull   = false;
-                                    break;
-                                }
-                                else
-                                {
-                                    bool isn = false;
-                                    for (auto&& m : firstSet[*next])
-                                    {
-                                        if (m != NULLCHAR)
-                                        {
-                                            isChanged = followSet[*k].insert(m).second or isChanged;
-                                        }
-                                        else
-                                            isn = true;
-                                    }
-                                    if (not isn)
-                                    {
-                                        allNull = false;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (allNull) //A->aB
-                            {
-                                for (auto&& m : followSet[i.first])
-                                {
-                                    isChanged = followSet[*k].insert(m).second or isChanged;
-                                }
-                            }
                         }
                     }
                 }
@@ -395,7 +325,7 @@ class LR1
             throw std::logic_error("NOT LR1 GRAMMAR!\n");
         };
         ItemSet tmp;
-        tmp.item.insert({0, 0, ENDCHAR});
+        tmp.item.insert({production.size() - 1, 0, ENDCHAR});
         closure(tmp);
         CC.emplace(move(tmp));
         queue<decltype(CC.begin())> q;
@@ -409,10 +339,15 @@ class LR1
             {
                 if (i.dotPosi == production[i.productionPosi].size())
                 {
-                    if (not Action.insert({{&(*now), i.next}, {'r', prodToNonter[i.productionPosi], nullptr, production[i.productionPosi].size()}}).second)
+                    auto n = production[i.productionPosi].size();
+                    if (production[i.productionPosi].size() == 1 and production[i.productionPosi].front() == NULLCHAR)
+                    {
+                        n = 0;
+                    }
+                    if (not Action.insert({{&(*now), i.next}, {'r', prodToNonter[i.productionPosi], nullptr, n}}).second)
                         error();
                 }
-                else
+                else // if (production[i.productionPosi][i.dotPosi] != NULLCHAR)
                 {
                     behinddot.insert(production[i.productionPosi][i.dotPosi]);
                 }
@@ -445,66 +380,25 @@ class LR1
         }
     }
 
-    // void constructTable()
-    // {
-    //     for (auto&& i : CC)
-    //     {
-    //         for (auto&& j : i.item)
-    //         {
-    //             if (j.dotPosi == production[j.productionPosi].size())
-    //             {
-    //                 if (j.next == ENDCHAR)
-    //                     // Action[{&i, j.next}] = {'a', "ACCEPT"};
-    //                 else
-    //                     // Action[{&i, j.next}] = {'r', prodToNonter[j.productionPosi]};
-    //             }
-    //             else
-    //             {
-    //                 auto&& now = production[j.productionPosi][j.dotPosi];
-    //                 if(terminal.find(now) != terminal.end())
-    //                 {
-    //                     auto cj = goto_(i, now);
-    //                     // Action[{&i, now}] = {'s',};
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
   public:
     LR1(const std::string& filePath)
     {
         using namespace std;
         auto&& res = constructGrammar(filePath);
-        // nonterminal[STARTCHAR].push_back(production.size());
-        // prodToNonter[production.size()] = STARTCHAR;
-        // production.push_back({move(res), ENDCHAR});
-        terminal.insert(ENDCHAR);
-        terminal.insert(NULLCHAR);
+        nonterminal[STARTCHAR].push_back(production.size());
+        prodToNonter[production.size()] = STARTCHAR;
+        production.push_back({move(res)});
+        // terminal.insert(ENDCHAR);
+        // terminal.insert(NULLCHAR);
         findAllTerminal();
         getFirst();
-        getFollow();
-        // production.back().pop_back();
         constructCC();
-        // cout << "Action\t" << Action.size() << endl;
-        // for (auto&& i : Action)
-        // {
-        //     cout << i.first.first->item.size() << ' '
-        //          << i.first.second << ' ' << get<0>(i.second) << ' ' << get<1>(i.second)
-        //          << endl;
-        // }
-        // cout << "GOTO\t" << Goto.size() << endl;
-        // for (auto&& i : Goto)
-        // {
-        //     cout << i.first.first->item.size() << ' '
-        //          << i.first.second << ' ' << i.second->item.size() << endl;
-        // }
     }
 
     bool parse(const std::string& input)
     {
         using namespace std;
-        char* buf = new char[input.size() + ENDCHAR.size() + 2];
+        char* buf = new char[input.size() + ENDCHAR.size() + 10];
         strcpy(buf, input.data());
         buf[input.size()] = ' ';
         strcpy(buf + input.size() + 1, ENDCHAR.data());
@@ -533,34 +427,40 @@ class LR1
         stack<const ItemSet*> state;
         state.push(StartState);
         stack<string> symbol;
-        symbol.push(ENDCHAR);
         auto word = nextWord();
         while (true)
         {
-            auto ns = state.top();
-            // state.pop();
+            auto ns  = state.top();
             auto pos = Action.find({ns, word});
             if (pos == Action.end())
             {
-                error();
-                return false;
+                pos = Action.find({ns, NULLCHAR});
+                if (pos == Action.end())
+                    error();
+                else
+                {
+                    state.push(get<2>(pos->second));
+                }
+                continue;
             }
             auto&& tmp = pos->second;
             if (get<0>(tmp) == 's')
             {
-                symbol.push(get<1>(tmp));
+                symbol.push(word);
                 state.push(get<2>(tmp));
                 word = nextWord();
             }
             else
             {
-                if (get<1>(tmp) == "Goal" and *nc == 0)
+                if (get<1>(tmp) == STARTCHAR and *nc == 0)
                 {
                     break;
                 }
                 else
                 {
                     auto n = get<3>(tmp);
+                    if (n == 0)
+                        state.pop();
                     while (n--)
                     {
                         state.pop();
