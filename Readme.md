@@ -23,6 +23,10 @@ Factor ::= ( Expr ) | num | name | <null>  ; <null> for epsilon
 
 
 ## LR1
+
+使用了列表初始化初始化构造tuple
+故编译器不支持 [N4387](http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/n4387) 会报错
+或者都换成`make_tuple()`
 ```
 
 ```
