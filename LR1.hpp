@@ -393,6 +393,15 @@ class LR1
         findAllTerminal();
         getFirst();
         constructCC();
+        // size_t n = 0;
+        // for (auto&& i : CC)
+        // {
+        //     n += i.item.size();
+        // }
+        // cout << n << endl;
+        // cout << CC.size() << endl;
+        // cout << Action.size() << endl;
+        // cout << Goto.size() << endl;
     }
 
     bool parse(const std::string& input)

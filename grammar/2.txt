@@ -1,7 +1,7 @@
 ;left recursion
+;E ::= E b | a
 Expr ::= Expr + Term | Expr - Term | Term
 Term ::= Term * Factor | Term / Factor | Factor
 Factor ::= ( Expr ) | Num | Id
-Num ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
-Id ::= a | b | x | y
-;E ::= E b | a
+;Num ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+;Id ::= a | b | x | y
